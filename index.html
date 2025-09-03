@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Database Query Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Database Query Assistant</h1>
+            <p>Ask questions in natural language and get database results</p>
+        </header>
+
+        <!-- Database Type Selection -->
+        <div id="db-selection" class="step active">
+            <h2>Select Database Type</h2>
+            <div class="db-options">
+                <button class="db-btn" data-db="mysql">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" alt="MySQL">
+                    <span>MySQL</span>
+                </button>
+                <button class="db-btn" data-db="mongodb">
+                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" alt="MongoDB">
+                    <span>MongoDB</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Database Credentials -->
+        <div id="db-credentials" class="step">
+            <div class="step-header">
+                <button class="back-btn" id="back-to-db-selection">← Back</button>
+                <h2>Database Credentials</h2>
+            </div>
+            <form id="credentials-form">
+                <div class="form-group">
+                    <label for="host">Host:</label>
+                    <input type="text" id="host" name="host" value="localhost" required>
+                </div>
+                <div class="form-group">
+                    <label for="port">Port:</label>
+                    <input type="number" id="port" name="port" required>
+                </div>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group" id="database-group">
+                    <label for="database">Database Name:</label>
+                    <input type="text" id="database" name="database" required>
+                </div>
+                <div class="form-group" id="auth-database-group" style="display: none;">
+                    <label for="authDatabase">Auth Database (MongoDB):</label>
+                    <input type="text" id="authDatabase" name="authDatabase" value="admin" placeholder="admin">
+                    <small>Database used for authentication (usually 'admin')</small>
+                </div>
+                <button type="submit">Connect</button>
+            </form>
+        </div>
+
+        <!-- Table Selection -->
+        <div id="table-selection" class="step">
+            <div class="step-header">
+                <button class="back-btn" id="back-to-credentials">← Back</button>
+                <h2>Select Tables/Collections</h2>
+            </div>
+            <p>Choose the tables you want to query:</p>
+            <div id="tables-list" class="tables-container">
+                <!-- Tables will be loaded here -->
+            </div>
+            <div class="table-actions">
+                <button id="select-all-tables">Select All</button>
+                <button id="proceed-to-query" disabled>Proceed to Query</button>
+            </div>
+        </div>
+
+        <!-- Query Interface -->
+        <div id="query-interface" class="step">
+            <div class="step-header">
+                <button class="back-btn" id="back-to-tables">← Back</button>
+                <h2>Ask Your Question</h2>
+            </div>
+            <div class="selected-tables-info">
+                <h3>Selected Tables:</h3>
+                <div id="selected-tables-display"></div>
+            </div>
+            <div class="table-schemas-section">
+                <h3>Table Structure:</h3>
+                <div id="table-schemas-info" class="schemas-container">
+                    <!-- Table schemas will be loaded here -->
+                </div>
+            </div>
+            <div class="query-section">
+                <textarea id="natural-query" placeholder="Ask your question in natural language, e.g., 'Show me all users who registered last month'"></textarea>
+                <div class="query-controls">
+                    <button id="submit-query">Generate Query</button>
+                    <select id="output-format">
+                        <option value="chat">Chat Format</option>
+                        <option value="table">Table Format</option>
+                        <option value="json">JSON File</option>
+                        <option value="csv">CSV File</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="generated-query" class="hidden">
+                <h3>Generated Query:</h3>
+                <pre id="query-display"></pre>
+                <div class="query-actions">
+                    <button id="execute-query">Execute Query</button>
+                    <button id="edit-query">Edit Query</button>
+                    <button class="back-btn" id="new-query">← New Query</button>
+                </div>
+            </div>
+
+            <div id="results" class="hidden">
+                <h3>Results:</h3>
+                <div id="results-content"></div>
+                <div class="results-actions">
+                    <button id="download-results" class="hidden">Download Results</button>
+                    <button class="back-btn" id="back-to-query">← Ask Another Question</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Processing your request...</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
