@@ -1,141 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Database Query Assistant</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .landing-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .landing-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            padding: 3rem;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .landing-header h1 {
+            color: #2c3e50;
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .landing-header p {
+            color: #7f8c8d;
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .landing-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 3rem;
+        }
+
+        .landing-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .landing-btn.primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .landing-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .landing-btn.secondary {
+            background: transparent;
+            color: #4facfe;
+            border: 2px solid #4facfe;
+        }
+
+        .landing-btn.secondary:hover {
+            background: #4facfe;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: left;
+        }
+
+        .feature-card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .feature-card p {
+            color: #6c757d;
+            line-height: 1.6;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .landing-card {
+                padding: 2rem 1.5rem;
+                margin: 10px;
+            }
+
+            .landing-header h1 {
+                font-size: 2.5rem;
+            }
+
+            .landing-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .landing-btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
 </head>
+
 <body>
-    <div class="container">
-        <header>
-            <h1>AI Database Query Assistant</h1>
-            <p>Ask questions in natural language and get database results</p>
-        </header>
-
-        <!-- Database Type Selection -->
-        <div id="db-selection" class="step active">
-            <h2>Select Database Type</h2>
-            <div class="db-options">
-                <button class="db-btn" data-db="mysql">
-                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" alt="MySQL">
-                    <span>MySQL</span>
-                </button>
-                <button class="db-btn" data-db="mongodb">
-                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" alt="MongoDB">
-                    <span>MongoDB</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Database Credentials -->
-        <div id="db-credentials" class="step">
-            <div class="step-header">
-                <button class="back-btn" id="back-to-db-selection">← Back</button>
-                <h2>Database Credentials</h2>
-            </div>
-            <form id="credentials-form">
-                <div class="form-group">
-                    <label for="host">Host:</label>
-                    <input type="text" id="host" name="host" value="localhost" required>
-                </div>
-                <div class="form-group">
-                    <label for="port">Port:</label>
-                    <input type="number" id="port" name="port" required>
-                </div>
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <div class="form-group" id="database-group">
-                    <label for="database">Database Name:</label>
-                    <input type="text" id="database" name="database" required>
-                </div>
-                <div class="form-group" id="auth-database-group" style="display: none;">
-                    <label for="authDatabase">Auth Database (MongoDB):</label>
-                    <input type="text" id="authDatabase" name="authDatabase" value="admin" placeholder="admin">
-                    <small>Database used for authentication (usually 'admin')</small>
-                </div>
-                <button type="submit">Connect</button>
-            </form>
-        </div>
-
-        <!-- Table Selection -->
-        <div id="table-selection" class="step">
-            <div class="step-header">
-                <button class="back-btn" id="back-to-credentials">← Back</button>
-                <h2>Select Tables/Collections</h2>
-            </div>
-            <p>Choose the tables you want to query:</p>
-            <div id="tables-list" class="tables-container">
-                <!-- Tables will be loaded here -->
-            </div>
-            <div class="table-actions">
-                <button id="select-all-tables">Select All</button>
-                <button id="proceed-to-query" disabled>Proceed to Query</button>
-            </div>
-        </div>
-
-        <!-- Query Interface -->
-        <div id="query-interface" class="step">
-            <div class="step-header">
-                <button class="back-btn" id="back-to-tables">← Back</button>
-                <h2>Ask Your Question</h2>
-            </div>
-            <div class="selected-tables-info">
-                <h3>Selected Tables:</h3>
-                <div id="selected-tables-display"></div>
-            </div>
-            <div class="table-schemas-section">
-                <h3>Table Structure:</h3>
-                <div id="table-schemas-info" class="schemas-container">
-                    <!-- Table schemas will be loaded here -->
-                </div>
-            </div>
-            <div class="query-section">
-                <textarea id="natural-query" placeholder="Ask your question in natural language, e.g., 'Show me all users who registered last month'"></textarea>
-                <div class="query-controls">
-                    <button id="submit-query">Generate Query</button>
-                    <select id="output-format">
-                        <option value="chat">Chat Format</option>
-                        <option value="table">Table Format</option>
-                        <option value="json">JSON File</option>
-                        <option value="csv">CSV File</option>
-                    </select>
-                </div>
+    <div class="landing-page">
+        <div class="landing-card">
+            <div class="landing-header">
+                <h1>AI Database Query Assistant</h1>
+                <p>Transform natural language into powerful database queries. Connect to MySQL and MongoDB databases and
+                    ask questions in plain English.</p>
             </div>
 
-            <div id="generated-query" class="hidden">
-                <h3>Generated Query:</h3>
-                <pre id="query-display"></pre>
-                <div class="query-actions">
-                    <button id="execute-query">Execute Query</button>
-                    <button id="edit-query">Edit Query</button>
-                    <button class="back-btn" id="new-query">← New Query</button>
-                </div>
+            <div class="landing-actions">
+                <a href="/signin" class="landing-btn primary">Get Started</a>
+                <a href="#features" class="landing-btn secondary">Learn More</a>
             </div>
 
-            <div id="results" class="hidden">
-                <h3>Results:</h3>
-                <div id="results-content"></div>
-                <div class="results-actions">
-                    <button id="download-results" class="hidden">Download Results</button>
-                    <button class="back-btn" id="back-to-query">← Ask Another Question</button>
+            <div id="features" class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🗣️</div>
+                    <h3>Natural Language Queries</h3>
+                    <p>Ask questions in plain English and get SQL or MongoDB queries generated automatically using AI.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>Multiple Database Support</h3>
+                    <p>Connect to MySQL and MongoDB databases with secure, encrypted connection storage.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI-Powered</h3>
+                    <p>Powered by Google's Gemini AI to understand your questions and generate accurate queries.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Export Results</h3>
+                    <p>Export query results in multiple formats including JSON, CSV, and formatted tables.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Secure & Private</h3>
+                    <p>Your database credentials are encrypted and stored securely. Your data never leaves your control.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Fast & Intuitive</h3>
+                    <p>Get instant results with an intuitive interface designed for both beginners and experts.</p>
                 </div>
             </div>
-        </div>
-
-        <!-- Loading Spinner -->
-        <div id="loading" class="hidden">
-            <div class="spinner"></div>
-            <p>Processing your request...</p>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // Check if user is already authenticated and redirect to dashboard
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Load Supabase config
+                const configResponse = await fetch('/api/config');
+                const config = await configResponse.json();
+
+                window.SUPABASE_URL = config.supabaseUrl;
+                window.SUPABASE_ANON_KEY = config.supabaseAnonKey;
+
+                // Dynamically import Supabase client
+                const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js@2');
+                const supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+                // Check if user is already signed in
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session && session.user) {
+                    // User is signed in, redirect to dashboard
+                    window.location.href = '/dashboard';
+                }
+            } catch (error) {
+                console.log('Auth check failed, staying on landing page');
+            }
+        });
+    </script>
 </body>
+
 </html>

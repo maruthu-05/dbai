@@ -5,11 +5,17 @@ const { MongoClient } = require('mongodb');
 const cors = require('cors');
 const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Database = require('./database');
+const AuthService = require('./auth');
+const SupabaseService = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Gemini AI
+// Initialize services
+const db = new Database();
+const auth = new AuthService();
+const supabase = new SupabaseService();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -200,7 +206,7 @@ app.post('/api/test-connection', async (req, res) => {
                 port: credentials.port,
                 user: credentials.username,
                 password: credentials.password,
-                database: credentials.database
+                database: credentials.database || 'information_schema' // Use information_schema as default for testing
             });
 
             await connection.ping();
@@ -211,9 +217,9 @@ app.post('/api/test-connection', async (req, res) => {
             if (credentials.username && credentials.password) {
                 // Include authSource parameter for authentication database
                 const authSource = credentials.authDatabase || 'admin';
-                uri = `mongodb://${credentials.username}:${credentials.password}@${credentials.host}:${credentials.port}/${credentials.database || 'test'}?authSource=${authSource}`;
+                uri = `mongodb://${credentials.username}:${credentials.password}@${credentials.host}:${credentials.port}/${credentials.database || 'admin'}?authSource=${authSource}`;
             } else {
-                uri = `mongodb://${credentials.host}:${credentials.port}/${credentials.database || 'test'}`;
+                uri = `mongodb://${credentials.host}:${credentials.port}/${credentials.database || 'admin'}`;
             }
 
             console.log('MongoDB connection URI:', uri.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in log
@@ -231,7 +237,7 @@ app.post('/api/test-connection', async (req, res) => {
 });
 
 // Get tables/collections from database
-app.post('/api/get-tables', async (req, res) => {
+app.post('/api/get-tables', supabase.authenticateRequest.bind(supabase), async (req, res) => {
     const { dbType, credentials } = req.body;
 
     try {
@@ -283,7 +289,7 @@ app.post('/api/get-tables', async (req, res) => {
 });
 
 // Get table schemas (column names and data types)
-app.post('/api/get-table-schemas', async (req, res) => {
+app.post('/api/get-table-schemas', supabase.authenticateRequest.bind(supabase), async (req, res) => {
     const { dbType, credentials, selectedTables } = req.body;
 
     try {
@@ -410,7 +416,7 @@ async function getTableSchemas(dbType, credentials, selectedTables) {
 }
 
 // Generate query using Gemini AI
-app.post('/api/generate-query', async (req, res) => {
+app.post('/api/generate-query', supabase.authenticateRequest.bind(supabase), async (req, res) => {
     const { naturalLanguage, dbType, selectedTables, credentials } = req.body;
 
     try {
@@ -445,7 +451,7 @@ app.post('/api/generate-query', async (req, res) => {
 
 
 // Execute database query
-app.post('/api/execute-query', async (req, res) => {
+app.post('/api/execute-query', supabase.authenticateRequest.bind(supabase), async (req, res) => {
     const { query, dbType, credentials } = req.body;
 
     try {
@@ -643,11 +649,400 @@ app.get('/api/test-gemini', async (req, res) => {
     }
 });
 
-// Serve the main page
+// Authentication endpoints
+app.post('/api/register', async (req, res) => {
+    try {
+        const { username, email, password, confirmPassword } = req.body;
+
+        // Validation
+        if (!auth.isValidUsername(username)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores'
+            });
+        }
+
+        if (!auth.isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Please enter a valid email address'
+            });
+        }
+
+        if (!auth.isValidPassword(password)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 6 characters long'
+            });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Passwords do not match'
+            });
+        }
+
+        // Check if user already exists
+        const existingUserByUsername = await db.getUserByUsername(username);
+        if (existingUserByUsername) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username already exists'
+            });
+        }
+
+        const existingUserByEmail = await db.getUserByEmail(email);
+        if (existingUserByEmail) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email already registered'
+            });
+        }
+
+        // Hash password and create user
+        const passwordHash = await auth.hashPassword(password);
+        const user = await db.createUser(username, email, passwordHash);
+
+        res.json({
+            success: true,
+            message: 'User created successfully',
+            user: { id: user.id, username: user.username, email: user.email }
+        });
+
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error during registration'
+        });
+    }
+});
+
+app.post('/api/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username and password are required'
+            });
+        }
+
+        // Get user from database
+        const user = await db.getUserByUsername(username);
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid username or password'
+            });
+        }
+
+        // Verify password
+        const isValidPassword = await auth.verifyPassword(password, user.password_hash);
+        if (!isValidPassword) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid username or password'
+            });
+        }
+
+        // Generate token
+        const token = auth.generateToken(user);
+
+        res.json({
+            success: true,
+            token: token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            }
+        });
+
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error during login'
+        });
+    }
+});
+
+app.get('/api/verify-token', auth.authenticateToken.bind(auth), async (req, res) => {
+    try {
+        // Get fresh user data
+        const user = await db.getUserById(req.user.id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            user: user
+        });
+    } catch (error) {
+        console.error('Token verification error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error'
+        });
+    }
+});
+
+// Legacy connection endpoints removed - using Supabase endpoints instead
+
+app.get('/api/connections', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const result = await supabase.getUserConnections(userId);
+
+        if (result.success) {
+            res.json({
+                success: true,
+                connections: result.connections
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: result.error
+            });
+        }
+
+    } catch (error) {
+        console.error('Get connections error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to load connections'
+        });
+    }
+});
+
+// Legacy connection endpoints removed - using Supabase endpoints instead
+
+// Get connection for query interface
+app.get('/api/selected-connection', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        const connectionId = req.query.id;
+        const userId = req.user.id;
+
+        if (!connectionId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Connection ID is required'
+            });
+        }
+
+        const result = await supabase.getConnection(userId, connectionId);
+
+        if (!result.success) {
+            return res.status(404).json({
+                success: false,
+                error: result.error || 'Connection not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            connection: {
+                id: result.connection.id,
+                name: result.connection.connection_name,
+                dbType: result.connection.db_type,
+                credentials: result.connection.credentials
+            }
+        });
+
+    } catch (error) {
+        console.error('Get selected connection error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to load connection'
+        });
+    }
+});
+
+// Serve Supabase config to frontend
+app.get('/api/config', (req, res) => {
+    res.json({
+        supabaseUrl: process.env.SUPABASE_URL,
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+    });
+});
+
+// Supabase authentication endpoints
+app.post('/api/connections', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const connectionData = req.body;
+
+        const result = await supabase.createConnection(userId, connectionData);
+        
+        if (result.success) {
+            res.json({ success: true, connection: result.connection });
+        } else {
+            res.status(400).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('Error creating connection:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+app.put('/api/connections/:id', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const connectionId = req.params.id;
+        const connectionData = req.body;
+
+        const result = await supabase.updateConnection(userId, connectionId, connectionData);
+        
+        if (result.success) {
+            res.json({ success: true, connection: result.connection });
+        } else {
+            res.status(400).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('Error updating connection:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/connections/:id', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const connectionId = req.params.id;
+
+        const result = await supabase.deleteConnection(userId, connectionId);
+        
+        if (result.success) {
+            res.json({ success: true });
+        } else {
+            res.status(400).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('Error deleting connection:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+app.get('/api/connections/:id', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const connectionId = req.params.id;
+
+        const result = await supabase.getConnection(userId, connectionId);
+        
+        if (result.success) {
+            res.json({ success: true, connection: result.connection });
+        } else {
+            res.status(400).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('Error fetching connection:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// Supabase Connection Management Endpoints
+app.post('/api/connections', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        console.log('📝 Creating new connection...');
+        const userId = req.user.id;
+        const connectionData = req.body;
+
+        const result = await supabase.createConnection(userId, connectionData);
+        
+        if (result.success) {
+            console.log('✅ Connection created successfully');
+            res.json({ success: true, connection: result.connection });
+        } else {
+            console.log('❌ Failed to create connection:', result.error);
+            res.status(400).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('❌ Error creating connection:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+app.put('/api/connections/:id', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        console.log('📝 Updating connection...');
+        const userId = req.user.id;
+        const connectionId = req.params.id;
+        const connectionData = req.body;
+
+        const result = await supabase.updateConnection(userId, connectionId, connectionData);
+        
+        if (result.success) {
+            console.log('✅ Connection updated successfully');
+            res.json({ success: true, connection: result.connection });
+        } else {
+            console.log('❌ Failed to update connection:', result.error);
+            res.status(400).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('❌ Error updating connection:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/connections/:id', supabase.authenticateRequest.bind(supabase), async (req, res) => {
+    try {
+        console.log('🗑️ Deleting connection...');
+        const userId = req.user.id;
+        const connectionId = req.params.id;
+
+        const result = await supabase.deleteConnection(userId, connectionId);
+        
+        if (result.success) {
+            console.log('✅ Connection deleted successfully');
+            res.json({ success: true });
+        } else {
+            console.log('❌ Failed to delete connection:', result.error);
+            res.status(400).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('❌ Error deleting connection:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// Clean routing: landing → signin → dashboard → query
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/signin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'auth.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/query', (req, res) => {
+    res.sendFile(path.join(__dirname, 'query-simple.html'));
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.log('Shutting down gracefully...');
+    db.close();
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log('Shutting down gracefully...');
+    db.close();
+    process.exit(0);
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log('Database initialized and ready');
 });

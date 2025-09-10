@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - AI Database Query Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .auth-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .auth-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            padding: 3rem;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        .auth-header {
+            margin-bottom: 2rem;
+        }
+
+        .auth-header h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .auth-header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+            margin-bottom: 0;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 2rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 5px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            color: #6c757d;
+        }
+
+        .auth-tab.active {
+            background: white;
+            color: #4facfe;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 0.5rem;
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .auth-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .auth-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .forgot-password {
+            color: #4facfe;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s ease;
+        }
+
+        .forgot-password:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .message.error {
+            background: #fee;
+            color: #c53030;
+            border: 1px solid #fed7d7;
+        }
+
+        .message.success {
+            background: #f0fff4;
+            color: #38a169;
+            border: 1px solid #c6f6d5;
+        }
+
+        .message.info {
+            background: #ebf8ff;
+            color: #3182ce;
+            border: 1px solid #bee3f8;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .features {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .features h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            text-align: left;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .feature-item::before {
+            content: "✓";
+            color: #38a169;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        @media (max-width: 480px) {
+            .auth-card {
+                padding: 2rem 1.5rem;
+                margin: 10px;
+            }
+
+            .auth-header h1 {
+                font-size: 2rem;
+            }
+
+            .feature-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-page auth-check">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Welcome</h1>
+                <p>AI Database Query Assistant</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="signin-tab">Sign In</button>
+                <button class="auth-tab" id="signup-tab">Sign Up</button>
+            </div>
+
+            <div id="message-container"></div>
+
+            <!-- Sign In Form -->
+            <form id="signin-form" class="auth-form active">
+                <div class="form-group">
+                    <label for="signin-email">Email</label>
+                    <input type="email" id="signin-email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signin-password">Password</label>
+                    <input type="password" id="signin-password" name="password" required>
+                </div>
+                
+                <button type="submit" class="auth-btn" id="signin-btn">
+                    Sign In
+                </button>
+                
+                <a href="#" class="forgot-password" id="forgot-password-link">Forgot your password?</a>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signup-form" class="auth-form">
+                <div class="form-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" name="password" required>
+                    <small>Minimum 6 characters</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signup-confirm-password">Confirm Password</label>
+                    <input type="password" id="signup-confirm-password" name="confirmPassword" required>
+                </div>
+                
+                <button type="submit" class="auth-btn" id="signup-btn">
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3>What you can do:</h3>
+                <div class="feature-list">
+                    <div class="feature-item">Connect databases</div>
+                    <div class="feature-item">Natural language queries</div>
+                    <div class="feature-item">MySQL & MongoDB</div>
+                    <div class="feature-item">Secure connections</div>
+                    <div class="feature-item">Export results</div>
+                    <div class="feature-item">AI-powered queries</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Load Supabase configuration and initialize auth
+        fetch('/api/config')
+            .then(response => response.json())
+            .then(config => {
+                window.SUPABASE_URL = config.supabaseUrl;
+                window.SUPABASE_ANON_KEY = config.supabaseAnonKey;
+                
+                // Load Supabase client
+                import('./supabase-client.js').then(() => {
+                    // Initialize auth page
+                    initAuthPage();
+                });
+            })
+            .catch(error => {
+                console.error('Failed to load Supabase config:', error);
+                showMessage('Configuration error. Please check server setup.', 'error');
+            });
+
+        function initAuthPage() {
+            // Check if user is already signed in
+            checkExistingAuth();
+            
+            // Bind events
+            bindAuthEvents();
+            
+            // Show page after initialization
+            setTimeout(() => {
+                document.querySelector('.auth-check').classList.add('ready');
+            }, 200);
+        }
+
+        async function checkExistingAuth() {
+            if (window.supabaseClient) {
+                const session = await window.supabaseClient.getSession();
+                if (session && session.user) {
+                    // User is already signed in, redirect to dashboard
+                    window.location.href = '/dashboard';
+                }
+            }
+        }
+
+        function bindAuthEvents() {
+            // Tab switching
+            document.getElementById('signin-tab').addEventListener('click', () => switchTab('signin'));
+            document.getElementById('signup-tab').addEventListener('click', () => switchTab('signup'));
+
+            // Form submissions
+            document.getElementById('signin-form').addEventListener('submit', handleSignIn);
+            document.getElementById('signup-form').addEventListener('submit', handleSignUp);
+
+            // Forgot password
+            document.getElementById('forgot-password-link').addEventListener('click', handleForgotPassword);
+        }
+
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`${tab}-tab`).classList.add('active');
+
+            // Update forms
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            document.getElementById(`${tab}-form`).classList.add('active');
+
+            // Clear messages
+            clearMessages();
+        }
+
+        async function handleSignIn(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('signin-email').value;
+            const password = document.getElementById('signin-password').value;
+
+            setLoading('signin', true);
+            clearMessages();
+
+            try {
+                const result = await window.supabaseClient.signIn(email, password);
+                
+                if (result.success) {
+                    showMessage('Sign in successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            } finally {
+                setLoading('signin', false);
+            }
+        }
+
+        async function handleSignUp(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                showMessage('Passwords do not match', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            setLoading('signup', true);
+            clearMessages();
+
+            try {
+                const result = await window.supabaseClient.signUp(email, password);
+                
+                if (result.success) {
+                    if (result.session) {
+                        // User is immediately signed in
+                        showMessage('Account created successfully! Redirecting...', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 1000);
+                    } else {
+                        // Email confirmation required
+                        showMessage('Account created! Please check your email to confirm your account.', 'info');
+                        switchTab('signin');
+                    }
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            } finally {
+                setLoading('signup', false);
+            }
+        }
+
+        async function handleForgotPassword(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('signin-email').value;
+            if (!email) {
+                showMessage('Please enter your email address first', 'error');
+                return;
+            }
+
+            try {
+                const result = await window.supabaseClient.resetPassword(email);
+                
+                if (result.success) {
+                    showMessage('Password reset email sent! Check your inbox.', 'success');
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            }
+        }
+
+        function setLoading(form, loading) {
+            const btn = document.getElementById(`${form}-btn`);
+            
+            if (loading) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading-spinner"></span>' + 
+                    (form === 'signin' ? 'Signing In...' : 'Creating Account...');
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = form === 'signin' ? 'Sign In' : 'Create Account';
+            }
+        }
+
+        function showMessage(message, type) {
+            const container = document.getElementById('message-container');
+            container.innerHTML = `<div class="message ${type}">${message}</div>`;
+        }
+
+        function clearMessages() {
+            document.getElementById('message-container').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

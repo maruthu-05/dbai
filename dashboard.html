@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI Database Query Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .user-info h1 {
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .user-info p {
+            color: #7f8c8d;
+            margin: 0.5rem 0 0 0;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .connections-section {
+            margin-bottom: 2rem;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .connections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        .connection-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            transition: border-color 0.3s, transform 0.2s;
+            cursor: pointer;
+        }
+        
+        .connection-card:hover {
+            border-color: #3498db;
+            transform: translateY(-2px);
+        }
+        
+        .connection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        
+        .connection-info h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        
+        .connection-info p {
+            margin: 0.5rem 0 0 0;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .db-type-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .db-type-mysql {
+            background: #e8f4fd;
+            color: #2980b9;
+        }
+        
+        .db-type-mongodb {
+            background: #e8f5e8;
+            color: #27ae60;
+        }
+        
+        .connection-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #7f8c8d;
+        }
+        
+        .empty-state img {
+            width: 100px;
+            opacity: 0.5;
+            margin-bottom: 1rem;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #34495e;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        .error-message {
+            background: #e74c3c;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .success-message {
+            background: #27ae60;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        /* Ensure page is visible during loading */
+        .auth-check {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .auth-check.ready {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container auth-check">
+        <div class="dashboard-header">
+            <div class="user-info">
+                <h1 id="welcome-title">AI Database Query Assistant</h1>
+                <p id="welcome-subtitle">Connect to your databases and start querying with natural language</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="add-connection-btn">+ Add Connection</button>
+                <button class="btn btn-secondary" id="logout-btn">Logout</button>
+            </div>
+        </div>
+
+        <div class="connections-section">
+            <div class="section-header">
+                <h2>Your Database Connections</h2>
+            </div>
+            
+            <div id="connections-container">
+                <div class="loading">Loading your connections...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Connection Modal -->
+    <div id="connection-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Add New Connection</h3>
+                <span class="close" id="close-modal">&times;</span>
+            </div>
+            
+            <div id="modal-message-container"></div>
+            
+            <form id="connection-form">
+                <div class="form-group">
+                    <label for="connection-name">Connection Name:</label>
+                    <input type="text" id="connection-name" name="connectionName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="db-type">Database Type:</label>
+                    <select id="db-type" name="dbType" required>
+                        <option value="">Select Database Type</option>
+                        <option value="mysql">MySQL</option>
+                        <option value="mongodb">MongoDB</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="host">Host:</label>
+                    <input type="text" id="host" name="host" value="localhost" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="port">Port:</label>
+                    <input type="number" id="port" name="port" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username-input" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password-input" name="password" required>
+                </div>
+                
+                <div class="form-group" id="auth-database-group" style="display: none;">
+                    <label for="auth-database">Auth Database (MongoDB):</label>
+                    <input type="text" id="auth-database" name="authDatabase" value="admin">
+                    <small>Database used for authentication (usually 'admin')</small>
+                </div>
+                
+                <div class="form-group">
+                    <button type="button" id="test-connection-btn" class="btn btn-secondary">Test Connection</button>
+                    <button type="submit" id="save-connection-btn" class="btn btn-primary">Save Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Database Selection Modal -->
+    <div id="database-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select Database</h3>
+                <span class="close" id="close-database-modal">&times;</span>
+            </div>
+            
+            <div id="database-modal-message-container"></div>
+            
+            <form id="database-form">
+                <div class="form-group">
+                    <label for="database-name">Database Name:</label>
+                    <input type="text" id="database-name" name="database" required>
+                    <small id="database-help-text">Enter the name of the database you want to connect to</small>
+                </div>
+                
+                <div class="form-group">
+                    <button type="submit" id="connect-database-btn" class="btn btn-primary">Connect to Database</button>
+                    <button type="button" id="cancel-database-btn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+
+    <script type="module">
+        console.log('📡 Loading dashboard configuration...');
+        
+        // Load Supabase configuration
+        fetch('/api/config')
+            .then(response => {
+                console.log('📡 Config response received:', response.status);
+                return response.json();
+            })
+            .then(config => {
+                console.log('⚙️ Config loaded:', { 
+                    hasUrl: !!config.supabaseUrl, 
+                    hasKey: !!config.supabaseAnonKey 
+                });
+                
+                window.SUPABASE_URL = config.supabaseUrl;
+                window.SUPABASE_ANON_KEY = config.supabaseAnonKey;
+                
+                // Load Supabase client
+                import('./supabase-client.js').then(() => {
+                    console.log('✅ Supabase client loaded, loading dashboard...');
+                    // Load dashboard after Supabase is ready
+                    const script = document.createElement('script');
+                    script.src = 'dashboard.js';
+                    script.onload = () => console.log('✅ Dashboard script loaded');
+                    script.onerror = (error) => console.error('❌ Dashboard script failed to load:', error);
+                    document.body.appendChild(script);
+                }).catch(error => {
+                    console.error('❌ Failed to load Supabase client:', error);
+                    // Fallback to dashboard without Supabase
+                    const script = document.createElement('script');
+                    script.src = 'dashboard.js';
+                    document.body.appendChild(script);
+                });
+            })
+            .catch(error => {
+                console.error('❌ Failed to load Supabase config:', error);
+                // Fallback to dashboard without Supabase
+                const script = document.createElement('script');
+                script.src = 'dashboard.js';
+                script.onload = () => console.log('✅ Dashboard script loaded (fallback)');
+                document.body.appendChild(script);
+            });
+    </script>
+</body>
+</html>

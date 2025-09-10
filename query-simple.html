@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Database Query Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>AI Database Query Assistant</h1>
+                    <p>Ask questions in natural language and get database results</p>
+                </div>
+                <div class="header-actions">
+                    <span id="connection-info" class="connection-info">Ready</span>
+                    <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">← Dashboard</button>
+                </div>
+            </div>
+        </header>
+
+        <div style="padding: 20px;">
+            <h2>Connection Info</h2>
+            <div id="debug-info" style="background: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <div>Connection ID: <span id="conn-id">Loading...</span></div>
+                <div>Database: <span id="db-name">Loading...</span></div>
+                <div>Token: <span id="token-status">Loading...</span></div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <button onclick="loadTables()" style="padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 5px; cursor: pointer;">Load Tables</button>
+            </div>
+
+            <div id="tables-container" style="border: 1px solid #ddd; padding: 20px; border-radius: 5px; min-height: 200px;">
+                <p>Click "Load Tables" to see your database tables.</p>
+            </div>
+
+            <div id="query-section" style="margin-top: 20px; display: none;">
+                <h3>Database Operations</h3>
+                
+                <!-- Query Type Selection -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold;">Operation Type:</label><br>
+                    <select id="query-type" onchange="updateQueryPlaceholder()" style="padding: 8px; margin-top: 5px; width: 200px;">
+                        <option value="select">SELECT (Read Data)</option>
+                        <option value="insert">INSERT (Add Data)</option>
+                        <option value="update">UPDATE (Modify Data)</option>
+                        <option value="delete">DELETE (Remove Data)</option>
+                        <option value="alter">ALTER (Change Structure)</option>
+                        <option value="create">CREATE (New Table/Index)</option>
+                        <option value="drop">DROP (Remove Table/Index)</option>
+                        <option value="custom">Custom Query</option>
+                    </select>
+                </div>
+
+                <!-- Natural Language Input -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold;">Describe what you want to do:</label><br>
+                    <textarea id="natural-query" placeholder="Describe your operation in natural language..." style="width: 100%; height: 80px; margin-top: 5px; padding: 8px;"></textarea>
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold;">Quick Actions:</label><br>
+                    <div style="margin-top: 5px;">
+                        <button onclick="setQuickQuery('show all tables')" style="margin: 2px; padding: 5px 10px; background: #17a2b8; color: white; border: none; border-radius: 3px; cursor: pointer;">Show All Tables</button>
+                        <button onclick="setQuickQuery('count all records')" style="margin: 2px; padding: 5px 10px; background: #17a2b8; color: white; border: none; border-radius: 3px; cursor: pointer;">Count Records</button>
+                        <button onclick="setQuickQuery('show table structure')" style="margin: 2px; padding: 5px 10px; background: #17a2b8; color: white; border: none; border-radius: 3px; cursor: pointer;">Table Structure</button>
+                        <button onclick="setQuickQuery('backup all data')" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">Backup Data</button>
+                    </div>
+                </div>
+
+                <!-- Output Format Selection -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold;">Output Format:</label><br>
+                    <select id="output-format" style="padding: 8px; margin-top: 5px; width: 200px;">
+                        <option value="table">Table View (Default)</option>
+                        <option value="chat">Chat Format</option>
+                        <option value="json">JSON Format</option>
+                        <option value="csv">CSV File Download</option>
+                    </select>
+                </div>
+
+                <!-- Generate Button -->
+                <button onclick="generateQuery()" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Generate Query</button>
+                
+                <!-- Generated Query Section -->
+                <div id="generated-query-section" style="margin-top: 20px; display: none;">
+                    <h4>Generated Query:</h4>
+                    <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px;">
+                        <pre id="query-display" style="margin: 0; white-space: pre-wrap; font-family: 'Courier New', monospace;"></pre>
+                    </div>
+                    
+                    <!-- Query Type Warning -->
+                    <div id="query-warning" style="display: none; background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                        <strong>⚠️ Warning:</strong> <span id="warning-text"></span>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div style="margin-top: 15px;">
+                        <button onclick="executeQuery()" id="execute-btn" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Execute Query</button>
+                        <button onclick="editQuery()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Edit Query</button>
+                        <button onclick="explainQuery()" style="padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer;">Explain Query</button>
+                    </div>
+                </div>
+
+                <!-- Manual Query Editor -->
+                <div id="manual-query-section" style="margin-top: 20px; display: none;">
+                    <h4>Edit Query Manually:</h4>
+                    <textarea id="manual-query" style="width: 100%; height: 120px; font-family: 'Courier New', monospace; padding: 10px;"></textarea>
+                    <div style="margin-top: 10px;">
+                        <button onclick="executeManualQuery()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Execute</button>
+                        <button onclick="hideManualEditor()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="results-section" style="margin-top: 20px; display: none;">
+                    <h4>Results:</h4>
+                    <div id="results-display" style="overflow-x: auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedTables = [];
+        let currentQuery = '';
+        let connectionData = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Simple query page loaded');
+            
+            const connectionId = localStorage.getItem('selectedConnectionId');
+            const databaseName = localStorage.getItem('selectedDatabase');
+            const token = localStorage.getItem('supabase_token');
+            
+            document.getElementById('conn-id').textContent = connectionId || 'Not found';
+            document.getElementById('db-name').textContent = databaseName || 'Not found';
+            document.getElementById('token-status').textContent = token ? 'Present' : 'Missing';
+            
+            if (!connectionId || !databaseName) {
+                document.getElementById('tables-container').innerHTML = '<p style="color: red;">Missing connection information. Please go back to dashboard and select a connection.</p>';
+                return;
+            }
+            
+            document.getElementById('connection-info').textContent = `${connectionId.substring(0, 8)}... → ${databaseName}`;
+        });
+
+        async function loadTables() {
+            console.log('🔄 Loading tables...');
+            
+            const connectionId = localStorage.getItem('selectedConnectionId');
+            const databaseName = localStorage.getItem('selectedDatabase');
+            const token = localStorage.getItem('supabase_token');
+            
+            if (!connectionId || !databaseName || !token) {
+                alert('Missing connection information');
+                return;
+            }
+            
+            document.getElementById('tables-container').innerHTML = '<p>Loading tables...</p>';
+            
+            try {
+                // Get connection details
+                console.log('📡 Fetching connection details...');
+                const connectionResponse = await fetch(`/api/selected-connection?id=${connectionId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!connectionResponse.ok) {
+                    throw new Error(`Connection API error: ${connectionResponse.status}`);
+                }
+                
+                const connectionResult = await connectionResponse.json();
+                connectionData = connectionResult.connection;
+                console.log('✅ Connection data:', connectionData);
+                
+                // Get tables
+                console.log('📡 Fetching tables...');
+                const tablesResponse = await fetch('/api/get-tables', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        dbType: connectionData.dbType,
+                        credentials: {
+                            ...connectionData.credentials,
+                            database: databaseName
+                        }
+                    })
+                });
+                
+                const tablesResult = await tablesResponse.json();
+                console.log('📋 Tables result:', tablesResult);
+                
+                if (tablesResult.success) {
+                    displayTables(tablesResult.tables);
+                } else {
+                    throw new Error(tablesResult.error);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                document.getElementById('tables-container').innerHTML = `
+                    <p style="color: red;">Error: ${error.message}</p>
+                    <button onclick="loadTables()" style="margin-top: 10px; padding: 5px 10px;">Retry</button>
+                `;
+            }
+        }
+
+        function displayTables(tables) {
+            console.log('📊 Displaying tables:', tables);
+            
+            if (!tables || tables.length === 0) {
+                document.getElementById('tables-container').innerHTML = '<p>No tables found in this database.</p>';
+                return;
+            }
+            
+            let html = '<h3>Select Tables:</h3>';
+            tables.forEach((table, index) => {
+                const tableName = table.name || table;
+                html += `
+                    <div style="margin: 5px 0;">
+                        <label style="cursor: pointer;">
+                            <input type="checkbox" value="${tableName}" onchange="updateSelectedTables()"> 
+                            <strong>${tableName}</strong>
+                        </label>
+                    </div>
+                `;
+            });
+            
+            html += '<button onclick="proceedToQuery()" id="proceed-btn" disabled style="margin-top: 15px; padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 5px;">Proceed to Query</button>';
+            
+            document.getElementById('tables-container').innerHTML = html;
+        }
+
+        function updateSelectedTables() {
+            const checkboxes = document.querySelectorAll('#tables-container input[type="checkbox"]:checked');
+            selectedTables = Array.from(checkboxes).map(cb => cb.value);
+            document.getElementById('proceed-btn').disabled = selectedTables.length === 0;
+        }
+
+        function proceedToQuery() {
+            if (selectedTables.length === 0) {
+                alert('Please select at least one table');
+                return;
+            }
+            
+            console.log('✅ Selected tables:', selectedTables);
+            document.getElementById('query-section').style.display = 'block';
+            updateQueryPlaceholder();
+            document.getElementById('query-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateQueryPlaceholder() {
+            const queryType = document.getElementById('query-type').value;
+            const textarea = document.getElementById('natural-query');
+            
+            const placeholders = {
+                'select': 'e.g., "Show all users from the users table" or "Find products with price > 100"',
+                'insert': 'e.g., "Add a new user with name John and email john@example.com" or "Insert 5 sample products"',
+                'update': 'e.g., "Update user email to newemail@example.com where id = 1" or "Increase all product prices by 10%"',
+                'delete': 'e.g., "Delete users where last_login is older than 1 year" or "Remove all inactive accounts"',
+                'alter': 'e.g., "Add a new column called phone_number to users table" or "Change email column to be unique"',
+                'create': 'e.g., "Create a new table called orders with columns id, user_id, total" or "Create an index on email column"',
+                'drop': 'e.g., "Drop the old_logs table" or "Remove the index on name column"',
+                'custom': 'Write your custom SQL query or describe what you want to do...'
+            };
+            
+            textarea.placeholder = placeholders[queryType] || 'Describe what you want to do...';
+        }
+
+        function setQuickQuery(query) {
+            document.getElementById('natural-query').value = query;
+        }
+
+        async function generateQuery() {
+            const naturalQuery = document.getElementById('natural-query').value.trim();
+            const queryType = document.getElementById('query-type').value;
+            
+            if (!naturalQuery) {
+                alert('Please describe what you want to do');
+                return;
+            }
+            
+            const token = localStorage.getItem('supabase_token');
+            const databaseName = localStorage.getItem('selectedDatabase');
+            
+            try {
+                console.log('🔄 Generating query...');
+                
+                // Enhanced prompt based on query type
+                let enhancedPrompt = naturalQuery;
+                if (queryType !== 'custom') {
+                    enhancedPrompt = `${queryType.toUpperCase()} operation: ${naturalQuery}`;
+                }
+                
+                const response = await fetch('/api/generate-query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        naturalLanguage: enhancedPrompt,
+                        dbType: connectionData.dbType,
+                        selectedTables: selectedTables,
+                        credentials: {
+                            ...connectionData.credentials,
+                            database: databaseName
+                        },
+                        queryType: queryType
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentQuery = result.query;
+                    document.getElementById('query-display').textContent = result.query;
+                    
+                    // Show warnings for dangerous operations
+                    showQueryWarning(result.query, queryType);
+                    
+                    document.getElementById('generated-query-section').style.display = 'block';
+                    document.getElementById('generated-query-section').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    throw new Error(result.error);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error generating query:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        function showQueryWarning(query, queryType) {
+            const warningDiv = document.getElementById('query-warning');
+            const warningText = document.getElementById('warning-text');
+            const executeBtn = document.getElementById('execute-btn');
+            
+            const upperQuery = query.toUpperCase();
+            let warning = '';
+            let isDestructive = false;
+            
+            if (upperQuery.includes('DELETE') || upperQuery.includes('DROP')) {
+                warning = 'This query will permanently delete data or database objects. Make sure you have a backup!';
+                isDestructive = true;
+            } else if (upperQuery.includes('UPDATE') || upperQuery.includes('ALTER')) {
+                warning = 'This query will modify existing data or structure. Review carefully before executing.';
+                isDestructive = true;
+            } else if (upperQuery.includes('INSERT')) {
+                warning = 'This query will add new data to your database.';
+            } else if (upperQuery.includes('CREATE')) {
+                warning = 'This query will create new database objects (tables, indexes, etc.).';
+            }
+            
+            if (warning) {
+                warningText.textContent = warning;
+                warningDiv.style.display = 'block';
+                
+                if (isDestructive) {
+                    executeBtn.style.background = '#dc3545';
+                    executeBtn.textContent = '⚠️ Execute (Destructive)';
+                } else {
+                    executeBtn.style.background = '#28a745';
+                    executeBtn.textContent = 'Execute Query';
+                }
+            } else {
+                warningDiv.style.display = 'none';
+                executeBtn.style.background = '#28a745';
+                executeBtn.textContent = 'Execute Query';
+            }
+        }
+
+        async function executeQuery() {
+            if (!currentQuery) return;
+            
+            // Confirmation for destructive operations
+            const upperQuery = currentQuery.toUpperCase();
+            if (upperQuery.includes('DELETE') || upperQuery.includes('DROP') || upperQuery.includes('ALTER')) {
+                const confirmed = confirm(`⚠️ WARNING: This operation may permanently modify or delete data.\n\nQuery: ${currentQuery}\n\nAre you sure you want to proceed?`);
+                if (!confirmed) return;
+            }
+            
+            const token = localStorage.getItem('supabase_token');
+            const databaseName = localStorage.getItem('selectedDatabase');
+            
+            try {
+                console.log('🔄 Executing query...');
+                
+                // Update button state
+                const executeBtn = document.getElementById('execute-btn');
+                const originalText = executeBtn.textContent;
+                executeBtn.disabled = true;
+                executeBtn.textContent = 'Executing...';
+                
+                const response = await fetch('/api/execute-query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        query: currentQuery,
+                        dbType: connectionData.dbType,
+                        credentials: {
+                            ...connectionData.credentials,
+                            database: databaseName
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Store results for format switching
+                    window.lastResults = result.results;
+                    displayResults(result.results, currentQuery);
+                } else {
+                    throw new Error(result.error);
+                }
+                
+                // Reset button
+                executeBtn.disabled = false;
+                executeBtn.textContent = originalText;
+                
+            } catch (error) {
+                console.error('❌ Error executing query:', error);
+                alert(`Error: ${error.message}`);
+                
+                // Reset button on error
+                const executeBtn = document.getElementById('execute-btn');
+                executeBtn.disabled = false;
+                executeBtn.textContent = 'Execute Query';
+            }
+        }
+
+        function editQuery() {
+            document.getElementById('manual-query').value = currentQuery;
+            document.getElementById('manual-query-section').style.display = 'block';
+            document.getElementById('manual-query-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideManualEditor() {
+            document.getElementById('manual-query-section').style.display = 'none';
+        }
+
+        async function executeManualQuery() {
+            const manualQuery = document.getElementById('manual-query').value.trim();
+            if (!manualQuery) {
+                alert('Please enter a query');
+                return;
+            }
+            
+            currentQuery = manualQuery;
+            document.getElementById('query-display').textContent = manualQuery;
+            hideManualEditor();
+            await executeQuery();
+        }
+
+        async function explainQuery() {
+            if (!currentQuery) return;
+            
+            try {
+                const explanation = generateQueryExplanation(currentQuery);
+                alert(`Query Explanation:\n\n${explanation}`);
+            } catch (error) {
+                alert('Could not explain this query');
+            }
+        }
+
+        function generateQueryExplanation(query) {
+            const upperQuery = query.toUpperCase();
+            
+            if (upperQuery.startsWith('SELECT')) {
+                return 'This SELECT query retrieves data from the database. It will read information from the specified tables and return matching records.';
+            } else if (upperQuery.startsWith('INSERT')) {
+                return 'This INSERT query adds new records to a table. It will create new rows with the specified data.';
+            } else if (upperQuery.startsWith('UPDATE')) {
+                return 'This UPDATE query modifies existing records in a table. It will change the values of specified columns for matching rows.';
+            } else if (upperQuery.startsWith('DELETE')) {
+                return 'This DELETE query removes records from a table. ⚠️ This permanently deletes data that matches the specified conditions.';
+            } else if (upperQuery.startsWith('ALTER')) {
+                return 'This ALTER query modifies the structure of a table. It can add, modify, or drop columns, indexes, or constraints.';
+            } else if (upperQuery.startsWith('CREATE')) {
+                return 'This CREATE query creates new database objects like tables, indexes, or views.';
+            } else if (upperQuery.startsWith('DROP')) {
+                return 'This DROP query permanently removes database objects like tables or indexes. ⚠️ This cannot be undone!';
+            } else {
+                return 'This is a custom database query. Please review it carefully before execution.';
+            }
+        }
+
+        function displayResults(results, query) {
+            const outputFormat = document.getElementById('output-format').value;
+            const upperQuery = query ? query.toUpperCase() : '';
+            
+            // Handle different types of results
+            if (!results) {
+                const html = '<div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; color: #155724;"><strong>✅ Success:</strong> Query executed successfully (no data returned).</div>';
+                document.getElementById('results-display').innerHTML = html;
+                document.getElementById('results-section').style.display = 'block';
+                return;
+            }
+            
+            if (Array.isArray(results) && results.length === 0) {
+                let html;
+                if (upperQuery.includes('SELECT')) {
+                    html = '<div style="padding: 15px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; color: #0c5460;"><strong>ℹ️ Info:</strong> Query executed successfully but returned no records.</div>';
+                } else {
+                    html = '<div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; color: #155724;"><strong>✅ Success:</strong> Operation completed successfully.</div>';
+                }
+                document.getElementById('results-display').innerHTML = html;
+                document.getElementById('results-section').style.display = 'block';
+                return;
+            }
+            
+            if (Array.isArray(results) && results.length > 0) {
+                // Check if it's a result with affected rows info
+                if (results[0].hasOwnProperty('affectedRows') || results[0].hasOwnProperty('insertId') || results[0].hasOwnProperty('changedRows')) {
+                    const info = results[0];
+                    let html = '<div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; color: #155724;">';
+                    html += '<strong>✅ Operation Successful:</strong><br>';
+                    if (info.affectedRows !== undefined) html += `• Affected rows: ${info.affectedRows}<br>`;
+                    if (info.insertId !== undefined) html += `• Insert ID: ${info.insertId}<br>`;
+                    if (info.changedRows !== undefined) html += `• Changed rows: ${info.changedRows}<br>`;
+                    html += '</div>';
+                    document.getElementById('results-display').innerHTML = html;
+                } else {
+                    // Regular data results - format based on user selection
+                    displayDataResults(results, outputFormat);
+                }
+            } else {
+                // Handle other result types
+                const html = `<div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; color: #155724;"><strong>✅ Success:</strong> ${JSON.stringify(results)}</div>`;
+                document.getElementById('results-display').innerHTML = html;
+            }
+            
+            document.getElementById('results-section').style.display = 'block';
+            document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function displayDataResults(results, format) {
+            const headers = Object.keys(results[0]);
+            let html = '';
+
+            // Add format selector and download button
+            html += `<div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">`;
+            html += `<strong>📊 Results (${results.length} records) - ${format.toUpperCase()} Format</strong>`;
+            html += `<div>`;
+            html += `<button onclick="changeFormat('table')" style="margin: 2px; padding: 5px 10px; background: ${format === 'table' ? '#007cba' : '#6c757d'}; color: white; border: none; border-radius: 3px; cursor: pointer;">Table</button>`;
+            html += `<button onclick="changeFormat('chat')" style="margin: 2px; padding: 5px 10px; background: ${format === 'chat' ? '#007cba' : '#6c757d'}; color: white; border: none; border-radius: 3px; cursor: pointer;">Chat</button>`;
+            html += `<button onclick="changeFormat('json')" style="margin: 2px; padding: 5px 10px; background: ${format === 'json' ? '#007cba' : '#6c757d'}; color: white; border: none; border-radius: 3px; cursor: pointer;">JSON</button>`;
+            html += `<button onclick="downloadCSV()" style="margin: 2px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">📥 CSV</button>`;
+            html += `</div></div>`;
+
+            switch (format) {
+                case 'table':
+                    html += generateTableFormat(results, headers);
+                    break;
+                case 'chat':
+                    html += generateChatFormat(results, headers);
+                    break;
+                case 'json':
+                    html += generateJSONFormat(results);
+                    break;
+                case 'csv':
+                    downloadCSV();
+                    html += '<div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; color: #155724;"><strong>✅ CSV Download:</strong> Your file should start downloading automatically.</div>';
+                    break;
+            }
+
+            document.getElementById('results-display').innerHTML = html;
+        }
+
+        function generateTableFormat(results, headers) {
+            let html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+            
+            // Headers
+            html += '<thead><tr>';
+            headers.forEach(header => {
+                html += `<th style="border: 1px solid #ddd; padding: 8px; background: #f5f5f5; text-align: left; white-space: nowrap;">${header}</th>`;
+            });
+            html += '</tr></thead>';
+            
+            // Rows (limit to first 100 for performance)
+            html += '<tbody>';
+            const displayResults = results.slice(0, 100);
+            displayResults.forEach((row, index) => {
+                html += `<tr style="${index % 2 === 0 ? 'background: #f9f9f9;' : ''}">`;
+                headers.forEach(header => {
+                    const value = row[header];
+                    let displayValue = '';
+                    if (value !== null && value !== undefined) {
+                        displayValue = String(value).length > 100 ? String(value).substring(0, 100) + '...' : String(value);
+                    }
+                    html += `<td style="border: 1px solid #ddd; padding: 8px; max-width: 200px; word-wrap: break-word;">${displayValue}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+            
+            if (results.length > 100) {
+                html += `<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;"><strong>Note:</strong> Showing first 100 of ${results.length} results.</div>`;
+            }
+            
+            return html;
+        }
+
+        function generateChatFormat(results, headers) {
+            let html = '<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; font-family: Arial, sans-serif;">';
+            
+            results.slice(0, 50).forEach((row, index) => {
+                html += `<div style="background: white; margin-bottom: 10px; padding: 12px; border-radius: 8px; border-left: 4px solid #007cba;">`;
+                html += `<div style="font-weight: bold; color: #007cba; margin-bottom: 8px;">Record ${index + 1}</div>`;
+                
+                headers.forEach(header => {
+                    const value = row[header];
+                    if (value !== null && value !== undefined) {
+                        html += `<div style="margin-bottom: 4px;"><strong>${header}:</strong> ${value}</div>`;
+                    }
+                });
+                html += '</div>';
+            });
+            
+            if (results.length > 50) {
+                html += `<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;"><strong>Note:</strong> Showing first 50 of ${results.length} results in chat format.</div>`;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        function generateJSONFormat(results) {
+            const jsonString = JSON.stringify(results, null, 2);
+            let html = '<div style="position: relative;">';
+            html += '<button onclick="copyJSON()" style="position: absolute; top: 10px; right: 10px; padding: 5px 10px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer;">📋 Copy</button>';
+            html += `<pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; max-height: 400px; border: 1px solid #dee2e6;"><code>${jsonString}</code></pre>`;
+            html += '</div>';
+            return html;
+        }
+
+        function changeFormat(newFormat) {
+            document.getElementById('output-format').value = newFormat;
+            // Re-display results with new format
+            if (window.lastResults) {
+                displayDataResults(window.lastResults, newFormat);
+            }
+        }
+
+        function copyJSON() {
+            const jsonText = document.querySelector('#results-display pre code').textContent;
+            navigator.clipboard.writeText(jsonText).then(() => {
+                alert('JSON copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy JSON');
+            });
+        }
+
+        function downloadCSV() {
+            if (!window.lastResults || window.lastResults.length === 0) {
+                alert('No data to download');
+                return;
+            }
+
+            const results = window.lastResults;
+            const headers = Object.keys(results[0]);
+            
+            // Create CSV content
+            let csvContent = headers.join(',') + '\n';
+            
+            results.forEach(row => {
+                const values = headers.map(header => {
+                    const value = row[header];
+                    if (value === null || value === undefined) return '';
+                    
+                    // Escape quotes and wrap in quotes if contains comma or quote
+                    const stringValue = String(value);
+                    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                        return '"' + stringValue.replace(/"/g, '""') + '"';
+                    }
+                    return stringValue;
+                });
+                csvContent += values.join(',') + '\n';
+            });
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
+</content>
+</invoke>

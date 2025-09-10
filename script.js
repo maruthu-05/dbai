@@ -1,5 +1,6 @@
 class DatabaseQueryApp {
     constructor() {
+        this.selectedConnection = null;
         this.selectedDB = null;
         this.credentials = null;
         this.availableTables = [];
@@ -11,22 +12,125 @@ class DatabaseQueryApp {
     }
 
     init() {
+        this.checkAuthAndLoadConnection();
         this.bindEvents();
-        this.updatePortPlaceholder();
+        // Show the page after initialization
+        setTimeout(() => {
+            const container = document.querySelector('.auth-check');
+            if (container) {
+                container.classList.add('ready');
+            }
+        }, 300);
+    }
+
+    async checkAuthAndLoadConnection() {
+        console.log('🔍 Checking auth and loading connection...');
+        
+        // Check Supabase session first
+        let token = localStorage.getItem('supabase_token');
+        
+        if (window.supabaseClient) {
+            console.log('✅ Supabase client found');
+            try {
+                const session = await window.supabaseClient.getSession();
+                console.log('📋 Session:', session);
+                
+                if (!session || !session.user) {
+                    console.log('❌ No valid session, redirecting to signin');
+                    window.location.href = '/signin';
+                    return;
+                }
+                
+                token = session.access_token;
+                localStorage.setItem('supabase_token', token);
+            } catch (error) {
+                console.error('❌ Error checking session:', error);
+            }
+        } else {
+            console.log('❌ Supabase client not found');
+            // Fallback to token check
+            if (!token) {
+                console.log('❌ No token found, redirecting to signin');
+                window.location.href = '/signin';
+                return;
+            }
+        }
+
+        const connectionId = localStorage.getItem('selectedConnectionId');
+        const databaseName = localStorage.getItem('selectedDatabase');
+
+        console.log('🔗 Connection ID:', connectionId);
+        console.log('🗄️ Database Name:', databaseName);
+
+        // Update debug info
+        if (document.getElementById('debug-connection-id')) {
+            document.getElementById('debug-connection-id').textContent = `Connection ID: ${connectionId || 'Not found'}`;
+        }
+        if (document.getElementById('debug-database-name')) {
+            document.getElementById('debug-database-name').textContent = `Database: ${databaseName || 'Not found'}`;
+        }
+        if (document.getElementById('debug-token')) {
+            document.getElementById('debug-token').textContent = `Token: ${token ? 'Present' : 'Missing'}`;
+        }
+
+        if (!connectionId || !databaseName) {
+            console.log('❌ Missing connection info, redirecting to dashboard');
+            alert('Missing connection information. Please select a connection from the dashboard.');
+            window.location.href = '/dashboard';
+            return;
+        }
+
+        try {
+            console.log('📡 Loading connection with token:', token ? 'present' : 'missing');
+            
+            // Load the selected connection
+            const response = await fetch(`/api/selected-connection?id=${connectionId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            console.log('📡 Response status:', response.status);
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('📋 Connection result:', result);
+                
+                this.selectedConnection = result.connection;
+                this.selectedDB = result.connection.dbType;
+                this.credentials = {
+                    ...result.connection.credentials,
+                    database: databaseName  // Add the selected database name
+                };
+                
+                console.log('✅ Connection loaded successfully');
+                
+                // Update UI
+                document.getElementById('connection-info').textContent = 
+                    `Connected to: ${result.connection.connectionName} → ${databaseName} (${result.connection.dbType.toUpperCase()})`;
+                
+                // Load tables directly
+                console.log('🔄 Loading tables...');
+                await this.loadTables();
+                console.log('✅ Tables loaded, showing table selection');
+                this.showStep('table-selection');
+            } else {
+                const errorText = await response.text();
+                console.error('❌ Response error:', errorText);
+                throw new Error(`Failed to load connection: ${response.status} ${errorText}`);
+            }
+        } catch (error) {
+            console.error('❌ Error loading connection:', error);
+            alert(`Failed to load database connection: ${error.message}. Redirecting to dashboard.`);
+            window.location.href = '/dashboard';
+        }
     }
 
     bindEvents() {
-        // Database selection
-        document.querySelectorAll('.db-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.selectDatabase(e.currentTarget.dataset.db);
-            });
-        });
-
-        // Credentials form
-        document.getElementById('credentials-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleCredentials();
+        // Header actions
+        document.getElementById('back-to-dashboard').addEventListener('click', () => {
+            window.location.href = '/dashboard';
         });
 
         // Query submission
@@ -59,12 +163,8 @@ class DatabaseQueryApp {
         });
 
         // Back button events
-        document.getElementById('back-to-db-selection').addEventListener('click', () => {
-            this.showStep('db-selection');
-        });
-
-        document.getElementById('back-to-credentials').addEventListener('click', () => {
-            this.showStep('db-credentials');
+        document.getElementById('back-to-dashboard-from-tables').addEventListener('click', () => {
+            window.location.href = '/dashboard';
         });
 
         document.getElementById('back-to-tables').addEventListener('click', () => {
@@ -80,103 +180,47 @@ class DatabaseQueryApp {
         });
     }
 
-    selectDatabase(dbType) {
-        this.selectedDB = dbType;
-        this.showStep('db-credentials');
-        this.updatePortPlaceholder();
-        
-        // Update form based on database type
-        if (dbType === 'mongodb') {
-            document.getElementById('database-group').style.display = 'block'; // MongoDB also needs database name
-            document.getElementById('port').value = '27017';
-            document.getElementById('database').placeholder = 'Database name (optional, defaults to "test")';
-            document.getElementById('database').required = false;
-            
-            // Show auth database field for MongoDB
-            const authDbGroup = document.getElementById('auth-database-group');
-            if (authDbGroup) {
-                authDbGroup.style.display = 'block';
-            }
-        } else {
-            document.getElementById('database-group').style.display = 'block';
-            document.getElementById('port').value = '3306';
-            document.getElementById('database').placeholder = 'Database name';
-            document.getElementById('database').required = true;
-            
-            // Hide auth database field for MySQL
-            const authDbGroup = document.getElementById('auth-database-group');
-            if (authDbGroup) {
-                authDbGroup.style.display = 'none';
-            }
-        }
-    }
 
-    updatePortPlaceholder() {
-        const portInput = document.getElementById('port');
-        if (this.selectedDB === 'mongodb') {
-            portInput.placeholder = '27017';
-        } else {
-            portInput.placeholder = '3306';
-        }
-    }
-
-    async handleCredentials() {
-        const formData = new FormData(document.getElementById('credentials-form'));
-        this.credentials = {
-            host: formData.get('host'),
-            port: formData.get('port'),
-            username: formData.get('username'),
-            password: formData.get('password'),
-            database: formData.get('database'),
-            authDatabase: formData.get('authDatabase') // For MongoDB authentication
-        };
-
-        this.showLoading();
-        
-        try {
-            // Test connection and get tables
-            await this.testConnection();
-            await this.loadTables();
-            this.showStep('table-selection');
-        } catch (error) {
-            alert('Connection failed: ' + error.message);
-        } finally {
-            this.hideLoading();
-        }
-    }
-
-    async testConnection() {
-        const response = await fetch('/api/test-connection', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                dbType: this.selectedDB,
-                credentials: this.credentials
-            })
-        });
-
-        const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.error);
-        }
-    }
 
     async loadTables() {
-        const response = await fetch('/api/get-tables', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                dbType: this.selectedDB,
-                credentials: this.credentials
-            })
-        });
+        try {
+            console.log('📡 Loading tables for DB type:', this.selectedDB);
+            console.log('🔑 Credentials:', { ...this.credentials, password: '[HIDDEN]' });
+            
+            const token = localStorage.getItem('supabase_token');
+            
+            const response = await fetch('/api/get-tables', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    dbType: this.selectedDB,
+                    credentials: this.credentials
+                })
+            });
 
-        const result = await response.json();
-        if (result.success) {
-            this.availableTables = result.tables;
+            console.log('📡 Tables response status:', response.status);
+            
+            const result = await response.json();
+            console.log('📋 Tables result:', result);
+            
+            if (result.success) {
+                this.availableTables = result.tables;
+                console.log('✅ Tables loaded:', this.availableTables.length, 'tables');
+                this.displayTables();
+            } else {
+                console.error('❌ Failed to load tables:', result.error);
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('❌ Error in loadTables:', error);
+            // Show error but don't redirect, let user see what happened
+            alert(`Failed to load tables: ${error.message}`);
+            // Show table selection anyway with error message
+            this.availableTables = [];
             this.displayTables();
-        } else {
-            throw new Error(result.error);
         }
     }
 
@@ -261,9 +305,13 @@ class DatabaseQueryApp {
         try {
             console.log('Loading table schemas for:', this.selectedTables);
             
+            const token = localStorage.getItem('supabase_token');
             const response = await fetch('/api/get-table-schemas', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     dbType: this.selectedDB,
                     credentials: this.credentials,
@@ -378,9 +426,13 @@ class DatabaseQueryApp {
             selectedTables: this.selectedTables
         });
 
+        const token = localStorage.getItem('supabase_token');
         const response = await fetch('/api/generate-query', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({
                 naturalLanguage: naturalQuery,
                 dbType: this.selectedDB,
@@ -439,9 +491,13 @@ class DatabaseQueryApp {
         this.showLoading();
 
         try {
+            const token = localStorage.getItem('supabase_token');
             const response = await fetch('/api/execute-query', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     query: this.currentQuery,
                     dbType: this.selectedDB,
