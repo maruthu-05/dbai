@@ -22,7 +22,7 @@ class SupabaseService {
             }
         });
 
-        console.log('✅ Supabase service initialized');
+
     }
 
     // Verify JWT token from frontend

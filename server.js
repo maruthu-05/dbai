@@ -5,16 +5,12 @@ const { MongoClient } = require('mongodb');
 const cors = require('cors');
 const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const Database = require('./database');
-const AuthService = require('./auth');
 const SupabaseService = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialize services
-const db = new Database();
-const auth = new AuthService();
 const supabase = new SupabaseService();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -26,25 +22,15 @@ app.use(express.static('.'));
 
 // Gemini AI integration
 async function generateQueryWithGemini(naturalLanguage, dbType, selectedTables = [], tableSchemas = null) {
-    console.log('=== GEMINI QUERY GENERATION START ===');
-    console.log('Natural Language:', naturalLanguage);
-    console.log('DB Type:', dbType);
-    console.log('Selected Tables:', selectedTables);
-    console.log('Table Schemas Available:', !!tableSchemas);
-
     try {
         // Check if API key is available
         if (!process.env.GEMINI_API_KEY) {
-            console.log('❌ GEMINI API KEY NOT FOUND - Using fallback');
             return generateFallbackQuery(naturalLanguage, dbType, selectedTables);
         }
-
-        console.log('✅ GEMINI API KEY FOUND');
 
         // Create detailed schema information for Gemini
         let schemaDetails = '';
         if (tableSchemas && Object.keys(tableSchemas).length > 0) {
-            console.log('✅ BUILDING SCHEMA DETAILS FOR GEMINI');
             schemaDetails = '\n\nDETAILED TABLE SCHEMAS:\n';
             Object.keys(tableSchemas).forEach(tableName => {
                 schemaDetails += `\nTable: ${tableName}\n`;
@@ -60,9 +46,6 @@ async function generateQueryWithGemini(naturalLanguage, dbType, selectedTables =
                 }
             });
             schemaDetails += '\nIMPORTANT: You MUST use these exact column names in your query!\n';
-            console.log('Schema Details Built:', schemaDetails);
-        } else {
-            console.log('❌ NO SCHEMA INFORMATION AVAILABLE FOR GEMINI');
         }
 
         let prompt;
@@ -130,43 +113,25 @@ ${schemaDetails ?
 Generate the MongoDB query now:`;
         }
 
-        console.log('📤 SENDING PROMPT TO GEMINI:');
-        console.log('--- PROMPT START ---');
-        console.log(prompt);
-        console.log('--- PROMPT END ---');
-
         const result = await model.generateContent(prompt);
         const response = await result.response;
         let query = response.text().trim();
-
-        console.log('📥 RAW GEMINI RESPONSE:', query);
 
         // Clean up the response - remove any markdown formatting
         query = query.replace(/```sql\n?/g, '').replace(/```mongodb\n?/g, '').replace(/```\n?/g, '');
         query = query.replace(/^Query:\s*/i, '');
         query = query.replace(/^\s*```\s*/g, '').replace(/\s*```\s*$/g, '');
 
-        console.log('✅ CLEANED GEMINI QUERY:', query);
-        console.log('=== GEMINI QUERY GENERATION SUCCESS ===');
-
         return query;
 
     } catch (error) {
-        console.error('❌ GEMINI API ERROR:', error);
-        console.log('🔄 FALLING BACK TO SIMPLE QUERY GENERATION');
-        console.log('=== GEMINI QUERY GENERATION FAILED ===');
-        // Fallback to simple query generation
+        console.error('Gemini API error:', error.message);
         return generateFallbackQuery(naturalLanguage, dbType, selectedTables);
     }
 }
 
 // Fallback query generation when Gemini API fails
 function generateFallbackQuery(naturalLanguage, dbType, selectedTables = []) {
-    console.log('🔄 USING FALLBACK QUERY GENERATION');
-    console.log('Input:', naturalLanguage);
-    console.log('DB Type:', dbType);
-    console.log('Tables:', selectedTables);
-
     const lower = naturalLanguage.toLowerCase();
     const firstTable = selectedTables[0] || 'users';
 
@@ -221,8 +186,6 @@ app.post('/api/test-connection', async (req, res) => {
             } else {
                 uri = `mongodb://${credentials.host}:${credentials.port}/${credentials.database || 'admin'}`;
             }
-
-            console.log('MongoDB connection URI:', uri.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in log
 
             const client = new MongoClient(uri);
             await client.connect();
@@ -314,8 +277,6 @@ async function getTableSchemas(dbType, credentials, selectedTables) {
         });
 
         for (const tableName of selectedTables) {
-            console.log(`Describing table: ${tableName}`);
-
             // Sanitize table name to prevent SQL injection
             const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
 
@@ -324,8 +285,6 @@ async function getTableSchemas(dbType, credentials, selectedTables) {
                     `DESCRIBE \`${sanitizedTableName}\``
                 );
 
-                console.log(`Found ${columns.length} columns in ${tableName}:`, columns);
-
                 schemas[tableName] = columns.map(col => ({
                     name: col.Field,
                     type: col.Type,
@@ -333,8 +292,6 @@ async function getTableSchemas(dbType, credentials, selectedTables) {
                     key: col.Key,
                     default: col.Default
                 }));
-
-                console.log(`Schema for ${tableName}:`, schemas[tableName]);
             } catch (tableError) {
                 console.error(`Error describing table ${tableName}:`, tableError.message);
                 schemas[tableName] = [];
@@ -357,15 +314,11 @@ async function getTableSchemas(dbType, credentials, selectedTables) {
         const db = client.db(credentials.database || 'test');
 
         for (const collectionName of selectedTables) {
-            console.log(`Sampling collection: ${collectionName}`);
-
             // Sample a few documents to infer schema
             const sampleDocs = await db.collection(collectionName)
                 .find({})
                 .limit(10)
                 .toArray();
-
-            console.log(`Found ${sampleDocs.length} sample documents in ${collectionName}`);
 
             if (sampleDocs.length > 0) {
                 const fieldTypes = {};
@@ -401,11 +354,8 @@ async function getTableSchemas(dbType, credentials, selectedTables) {
                     type: Array.from(fieldTypes[field]).join(' | '),
                     nullable: true
                 }));
-
-                console.log(`Schema for ${collectionName}:`, schemas[collectionName]);
             } else {
                 schemas[collectionName] = [];
-                console.log(`No documents found in ${collectionName}`);
             }
         }
 
@@ -431,16 +381,12 @@ app.post('/api/generate-query', supabase.authenticateRequest.bind(supabase), asy
         // Fetch table schemas for better query generation
         let tableSchemas = null;
         try {
-            console.log('Fetching schemas for tables:', selectedTables);
             tableSchemas = await getTableSchemas(dbType, credentials, selectedTables);
-            console.log('Fetched schemas:', JSON.stringify(tableSchemas, null, 2));
         } catch (schemaError) {
             console.error('Could not fetch schemas:', schemaError.message);
         }
 
-        console.log('Generating query with schemas:', tableSchemas ? 'YES' : 'NO');
         const query = await generateQueryWithGemini(naturalLanguage, dbType, selectedTables, tableSchemas);
-        console.log('Generated query:', query);
 
         res.json({ success: true, query });
     } catch (error) {
@@ -649,152 +595,7 @@ app.get('/api/test-gemini', async (req, res) => {
     }
 });
 
-// Authentication endpoints
-app.post('/api/register', async (req, res) => {
-    try {
-        const { username, email, password, confirmPassword } = req.body;
-
-        // Validation
-        if (!auth.isValidUsername(username)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores'
-            });
-        }
-
-        if (!auth.isValidEmail(email)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Please enter a valid email address'
-            });
-        }
-
-        if (!auth.isValidPassword(password)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Password must be at least 6 characters long'
-            });
-        }
-
-        if (password !== confirmPassword) {
-            return res.status(400).json({
-                success: false,
-                error: 'Passwords do not match'
-            });
-        }
-
-        // Check if user already exists
-        const existingUserByUsername = await db.getUserByUsername(username);
-        if (existingUserByUsername) {
-            return res.status(400).json({
-                success: false,
-                error: 'Username already exists'
-            });
-        }
-
-        const existingUserByEmail = await db.getUserByEmail(email);
-        if (existingUserByEmail) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email already registered'
-            });
-        }
-
-        // Hash password and create user
-        const passwordHash = await auth.hashPassword(password);
-        const user = await db.createUser(username, email, passwordHash);
-
-        res.json({
-            success: true,
-            message: 'User created successfully',
-            user: { id: user.id, username: user.username, email: user.email }
-        });
-
-    } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Internal server error during registration'
-        });
-    }
-});
-
-app.post('/api/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-
-        if (!username || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Username and password are required'
-            });
-        }
-
-        // Get user from database
-        const user = await db.getUserByUsername(username);
-        if (!user) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid username or password'
-            });
-        }
-
-        // Verify password
-        const isValidPassword = await auth.verifyPassword(password, user.password_hash);
-        if (!isValidPassword) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid username or password'
-            });
-        }
-
-        // Generate token
-        const token = auth.generateToken(user);
-
-        res.json({
-            success: true,
-            token: token,
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email
-            }
-        });
-
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Internal server error during login'
-        });
-    }
-});
-
-app.get('/api/verify-token', auth.authenticateToken.bind(auth), async (req, res) => {
-    try {
-        // Get fresh user data
-        const user = await db.getUserById(req.user.id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            user: user
-        });
-    } catch (error) {
-        console.error('Token verification error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Internal server error'
-        });
-    }
-});
-
-// Legacy connection endpoints removed - using Supabase endpoints instead
+// Legacy authentication endpoints removed - using Supabase authentication instead
 
 app.get('/api/connections', supabase.authenticateRequest.bind(supabase), async (req, res) => {
     try {
@@ -880,7 +681,7 @@ app.post('/api/connections', supabase.authenticateRequest.bind(supabase), async 
         const connectionData = req.body;
 
         const result = await supabase.createConnection(userId, connectionData);
-        
+
         if (result.success) {
             res.json({ success: true, connection: result.connection });
         } else {
@@ -899,7 +700,7 @@ app.put('/api/connections/:id', supabase.authenticateRequest.bind(supabase), asy
         const connectionData = req.body;
 
         const result = await supabase.updateConnection(userId, connectionId, connectionData);
-        
+
         if (result.success) {
             res.json({ success: true, connection: result.connection });
         } else {
@@ -917,7 +718,7 @@ app.delete('/api/connections/:id', supabase.authenticateRequest.bind(supabase), 
         const connectionId = req.params.id;
 
         const result = await supabase.deleteConnection(userId, connectionId);
-        
+
         if (result.success) {
             res.json({ success: true });
         } else {
@@ -935,7 +736,7 @@ app.get('/api/connections/:id', supabase.authenticateRequest.bind(supabase), asy
         const connectionId = req.params.id;
 
         const result = await supabase.getConnection(userId, connectionId);
-        
+
         if (result.success) {
             res.json({ success: true, connection: result.connection });
         } else {
@@ -955,7 +756,7 @@ app.post('/api/connections', supabase.authenticateRequest.bind(supabase), async 
         const connectionData = req.body;
 
         const result = await supabase.createConnection(userId, connectionData);
-        
+
         if (result.success) {
             console.log('✅ Connection created successfully');
             res.json({ success: true, connection: result.connection });
@@ -977,7 +778,7 @@ app.put('/api/connections/:id', supabase.authenticateRequest.bind(supabase), asy
         const connectionData = req.body;
 
         const result = await supabase.updateConnection(userId, connectionId, connectionData);
-        
+
         if (result.success) {
             console.log('✅ Connection updated successfully');
             res.json({ success: true, connection: result.connection });
@@ -998,7 +799,7 @@ app.delete('/api/connections/:id', supabase.authenticateRequest.bind(supabase), 
         const connectionId = req.params.id;
 
         const result = await supabase.deleteConnection(userId, connectionId);
-        
+
         if (result.success) {
             console.log('✅ Connection deleted successfully');
             res.json({ success: true });
@@ -1042,7 +843,8 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
+
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log('Database initialized and ready');
+    console.log(`🚀 AI Database Query Assistant running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

@@ -15,7 +15,7 @@ class SupabaseClient {
             this.handleAuthStateChange(event, session);
         });
 
-        console.log('✅ Supabase client initialized');
+
     }
 
     // Handle authentication state changes
@@ -96,14 +96,21 @@ class SupabaseClient {
 
     // Sign out
     async signOut() {
-        const { error } = await this.supabase.auth.signOut();
+        try {
+            console.log('Supabase signOut called');
+            const { error } = await this.supabase.auth.signOut();
 
-        if (error) {
-            console.error('Sign out error:', error);
+            if (error) {
+                console.error('Sign out error:', error);
+                return { success: false, error: error.message };
+            }
+
+            console.log('Supabase signOut successful');
+            return { success: true };
+        } catch (error) {
+            console.error('Sign out exception:', error);
             return { success: false, error: error.message };
         }
-
-        return { success: true };
     }
 
     // Reset password

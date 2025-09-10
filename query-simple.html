@@ -15,19 +15,12 @@
                     <p>Ask questions in natural language and get database results</p>
                 </div>
                 <div class="header-actions">
-                    <span id="connection-info" class="connection-info">Ready</span>
                     <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">← Dashboard</button>
                 </div>
             </div>
         </header>
 
         <div style="padding: 20px;">
-            <h2>Connection Info</h2>
-            <div id="debug-info" style="background: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-                <div>Connection ID: <span id="conn-id">Loading...</span></div>
-                <div>Database: <span id="db-name">Loading...</span></div>
-                <div>Token: <span id="token-status">Loading...</span></div>
-            </div>
 
             <div style="margin-bottom: 20px;">
                 <button onclick="loadTables()" style="padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 5px; cursor: pointer;">Load Tables</button>
@@ -137,16 +130,13 @@
             const databaseName = localStorage.getItem('selectedDatabase');
             const token = localStorage.getItem('supabase_token');
             
-            document.getElementById('conn-id').textContent = connectionId || 'Not found';
-            document.getElementById('db-name').textContent = databaseName || 'Not found';
-            document.getElementById('token-status').textContent = token ? 'Present' : 'Missing';
             
             if (!connectionId || !databaseName) {
                 document.getElementById('tables-container').innerHTML = '<p style="color: red;">Missing connection information. Please go back to dashboard and select a connection.</p>';
                 return;
             }
             
-            document.getElementById('connection-info').textContent = `${connectionId.substring(0, 8)}... → ${databaseName}`;
+
         });
 
         async function loadTables() {

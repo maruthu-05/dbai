@@ -69,11 +69,30 @@ class DashboardApp {
         document.getElementById('welcome-subtitle').textContent = 'Manage your database connections and start querying';
 
         const logoutBtn = document.getElementById('logout-btn');
-        logoutBtn.onclick = () => this.logout();
+        if (logoutBtn) {
+            logoutBtn.onclick = (e) => {
+                e.preventDefault();
+                this.logout();
+            };
+        } else {
+            console.error('Logout button not found');
+        }
     }
 
     showUnauthenticatedState() {
         // If not authenticated, redirect to signin
+        window.location.href = '/signin';
+    }
+
+    onUserSignedOut() {
+        console.log('User signed out, cleaning up...');
+        // Clear user data
+        this.user = null;
+        // Clear local storage
+        localStorage.removeItem('selectedConnectionId');
+        localStorage.removeItem('selectedDatabase');
+        localStorage.removeItem('supabase_token');
+        // Redirect to signin page
         window.location.href = '/signin';
     }
 
@@ -541,16 +560,34 @@ class DashboardApp {
     }
 
     async logout() {
-        if (window.supabaseClient) {
-            await window.supabaseClient.signOut();
+        try {
+            console.log('Logging out...');
+            
+            if (window.supabaseClient) {
+                const result = await window.supabaseClient.signOut();
+                if (!result.success) {
+                    console.error('Logout error:', result.error);
+                    // Still proceed with local cleanup even if server logout fails
+                }
+            }
+
+            // Clear local storage
+            localStorage.removeItem('selectedConnectionId');
+            localStorage.removeItem('selectedDatabase');
+            localStorage.removeItem('supabase_token');
+
+            // Clear user data
+            this.user = null;
+            
+            // Redirect to signin page
+            console.log('Redirecting to signin...');
+            window.location.href = '/signin';
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Force cleanup and redirect even if there's an error
+            localStorage.clear();
+            window.location.href = '/signin';
         }
-
-        localStorage.removeItem('selectedConnectionId');
-        localStorage.removeItem('selectedDatabase');
-        localStorage.removeItem('supabase_token');
-
-        this.user = null;
-        window.location.href = '/signin';
     }
 
     // Login Modal Methods
@@ -739,6 +776,13 @@ function initializeDashboard() {
     if (!dashboardApp) {
         dashboardApp = new DashboardApp();
         window.dashboardApp = dashboardApp; // Make it globally accessible
+        
+        // Add global logout function for debugging
+        window.forceLogout = () => {
+            console.log('Force logout called');
+            localStorage.clear();
+            window.location.href = '/signin';
+        };
     }
 }
 
